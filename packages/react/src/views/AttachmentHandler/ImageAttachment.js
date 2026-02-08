@@ -25,6 +25,33 @@ const ImageAttachment = ({
     const match = url.match(/\/file-upload\/(.*?)\//);
     return match ? match[1] : null;
   };
+  const getAttachmentUrl = (url) => {
+    if (!url) {
+      return '';
+    }
+
+    if (/^(https?:)?\/\//i.test(url) || /^data:|^blob:/i.test(url)) {
+      return url;
+    }
+
+    return `${host}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
+  const getImageUrl = (currentAttachment) =>
+    getAttachmentUrl(
+      currentAttachment?.image_url ||
+        currentAttachment?.thumb_url ||
+        currentAttachment?.thumbnail_url ||
+        currentAttachment?.thumbnailUrl
+    );
+
+  const getThumbnailUrl = (currentAttachment) =>
+    getAttachmentUrl(
+      currentAttachment?.thumb_url ||
+        currentAttachment?.thumbnail_url ||
+        currentAttachment?.thumbnailUrl ||
+        currentAttachment?.image_url
+    );
 
   const { theme } = useTheme();
 
@@ -86,7 +113,9 @@ const ImageAttachment = ({
         >
           <AttachmentMetadata
             attachment={attachment}
-            url={host + (attachment.title_link || attachment.image_url)}
+            url={
+              getAttachmentUrl(attachment.title_link) || getImageUrl(attachment)
+            }
             variantStyles={variantStyles}
             msg={msg}
             onExpandCollapseClick={toggleExpanded}
@@ -96,12 +125,35 @@ const ImageAttachment = ({
         {isExpanded && (
           <Box onClick={() => setShowGallery(true)}>
             <img
-              src={host + attachment.image_url}
+              src={getImageUrl(attachment)}
               style={{
                 maxWidth: '100%',
                 objectFit: 'contain',
                 borderBottomLeftRadius: 'inherit',
                 borderBottomRightRadius: 'inherit',
+              }}
+            />
+          </Box>
+        )}
+        {!isExpanded && getThumbnailUrl(attachment) && (
+          <Box
+            css={css`
+              margin-top: 0.5rem;
+              width: 72px;
+              height: 72px;
+              border-radius: 4px;
+              overflow: hidden;
+              border: 1px solid ${theme.colors.border};
+              line-height: 0;
+            `}
+          >
+            <img
+              src={getThumbnailUrl(attachment)}
+              alt={attachment?.title || 'attachment-thumbnail'}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
               }}
             />
           </Box>
@@ -154,20 +206,44 @@ const ImageAttachment = ({
                 <AttachmentMetadata
                   attachment={nestedAttachment}
                   url={
-                    host +
-                    (nestedAttachment.title_link || nestedAttachment.image_url)
+                    getAttachmentUrl(nestedAttachment.title_link) ||
+                    getImageUrl(nestedAttachment)
                   }
                   variantStyles={variantStyles}
                 />
-                <img
-                  src={host + nestedAttachment.image_url}
-                  style={{
-                    maxWidth: '100%',
-                    objectFit: 'contain',
-                    borderBottomLeftRadius: 'inherit',
-                    borderBottomRightRadius: 'inherit',
-                  }}
-                />
+                {isExpanded ? (
+                  <img
+                    src={getImageUrl(nestedAttachment)}
+                    style={{
+                      maxWidth: '100%',
+                      objectFit: 'contain',
+                      borderBottomLeftRadius: 'inherit',
+                      borderBottomRightRadius: 'inherit',
+                    }}
+                  />
+                ) : (
+                  <Box
+                    css={css`
+                      margin-top: 0.5rem;
+                      width: 72px;
+                      height: 72px;
+                      border-radius: 4px;
+                      overflow: hidden;
+                      border: 1px solid ${theme.colors.border};
+                      line-height: 0;
+                    `}
+                  >
+                    <img
+                      src={getThumbnailUrl(nestedAttachment)}
+                      alt={nestedAttachment?.title || 'attachment-thumbnail'}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  </Box>
+                )}
               </Box>
               {showGallery && (
                 <ImageGallery

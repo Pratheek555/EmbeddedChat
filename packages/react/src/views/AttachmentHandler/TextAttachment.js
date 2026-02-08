@@ -49,6 +49,128 @@ const FileAttachment = ({
     return format ? `${formattedSize} - ${format}` : formattedSize;
   };
 
+  const getAttachmentUrl = (url) => {
+    if (!url) {
+      return '';
+    }
+
+    if (/^(https?:)?\/\//i.test(url) || /^data:|^blob:/i.test(url)) {
+      return url;
+    }
+
+    return `${host}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
+  const getImageSourceCandidates = (currentAttachment) =>
+    [
+      currentAttachment?.image_url,
+      currentAttachment?.thumbnail_url,
+      currentAttachment?.thumbnailUrl,
+      currentAttachment?.title_link,
+    ]
+      .map((url) => getAttachmentUrl(url))
+      .filter(Boolean);
+
+  const getThumbnailUrl = (currentAttachment) =>
+    getAttachmentUrl(
+      currentAttachment?.thumb_url ||
+        currentAttachment?.thumbnail_url ||
+        currentAttachment?.thumbnailUrl ||
+        currentAttachment?.image_url
+    );
+
+  const renderFileOrImagePreview = (currentAttachment) => {
+    if (
+      currentAttachment?.image_url ||
+      currentAttachment?.thumbnail_url ||
+      currentAttachment?.thumbnailUrl
+    ) {
+      const sourceCandidates = getImageSourceCandidates(currentAttachment);
+      return (
+        <Box
+          css={css`
+            margin-top: 0.5rem;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid ${theme.colors.border};
+            line-height: 0;
+          `}
+        >
+          <img
+            src={sourceCandidates[0] || ''}
+            alt={currentAttachment?.title || 'attachment-image'}
+            style={{
+              width: '100%',
+              maxWidth: '100%',
+              objectFit: 'contain',
+            }}
+            onError={(e) => {
+              const imgElement = e.currentTarget;
+              const currentIndex = Number(
+                imgElement.dataset.candidateIndex || 0
+              );
+              const nextIndex = currentIndex + 1;
+
+              if (nextIndex < sourceCandidates.length) {
+                imgElement.dataset.candidateIndex = String(nextIndex);
+                imgElement.src = sourceCandidates[nextIndex];
+              }
+            }}
+          />
+        </Box>
+      );
+    }
+
+    return (
+      <Box
+        css={css`
+          display: flex;
+          align-items: center;
+          margin-top: 0.5rem;
+          background: ${theme.colors.background};
+          padding: 8px 12px;
+          border-radius: 4px;
+          gap: 8px;
+          border: 1px solid ${theme.colors.border};
+        `}
+      >
+        <Icon name="file" size="40px" />
+        <Box
+          css={css`
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            line-height: normal;
+          `}
+        >
+          <a
+            href={getAttachmentUrl(currentAttachment?.title_link) || ' '}
+            download={currentAttachment?.title_link_download}
+            css={css`
+              text-decoration: none;
+              font-size: 0.875rem;
+              &:hover {
+                text-decoration: underline;
+              }
+            `}
+          >
+            {currentAttachment?.title}
+          </a>
+          <Box
+            css={css`
+              font-size: 0.75rem;
+            `}
+          >
+            {getFileSizeWithFormat(
+              currentAttachment?.size,
+              currentAttachment?.format
+            )}
+          </Box>
+        </Box>
+      </Box>
+    );
+  };
+
   return (
     <Box css={variantStyles.fileAttachmentContainer}>
       <Box
@@ -90,7 +212,7 @@ const FileAttachment = ({
         {!attachment?.text && !attachment?.attachments && (
           <AttachmentMetadata
             attachment={attachment}
-            url={host + attachment.title_link}
+            url={getAttachmentUrl(attachment.title_link)}
             variantStyles={variantStyles}
             msg={msg}
             onExpandCollapseClick={toggleExpanded}
@@ -120,54 +242,39 @@ const FileAttachment = ({
                 />
               )
             ) : !attachment.attachments ? (
-              <Box
-                css={css`
-                  display: flex;
-                  align-items: center;
-                  margin-top: 0.5rem;
-                  background: ${theme.colors.background};
-                  padding: 8px 12px;
-                  border-radius: 4px;
-                  gap: 8px;
-                  border: 1px solid ${theme.colors.border};
-                `}
-              >
-                <Icon name="file" size="40px" />
-                <Box
-                  css={css`
-                    display: flex;
-                    flex-direction: column;
-                    gap: 2px;
-                    line-height: normal;
-                  `}
-                >
-                  <a
-                    href={host + attachment.title_link}
-                    download={attachment.title_link_download}
-                    css={css`
-                      text-decoration: none;
-                      font-size: 0.875rem;
-                      &:hover {
-                        text-decoration: underline;
-                      }
-                    `}
-                  >
-                    {attachment.title}
-                  </a>
-                  <Box
-                    css={css`
-                      font-size: 0.75rem;
-                    `}
-                  >
-                    {getFileSizeWithFormat(attachment.size, attachment.format)}
-                  </Box>
-                </Box>
-              </Box>
+              renderFileOrImagePreview(attachment)
             ) : (
               ''
             )}
           </Box>
         )}
+        {!isExpanded &&
+          (attachment?.thumb_url ||
+            attachment?.thumbnail_url ||
+            attachment?.thumbnailUrl ||
+            attachment?.image_url) && (
+            <Box
+              css={css`
+                margin-top: 0.5rem;
+                width: 72px;
+                height: 72px;
+                border-radius: 4px;
+                overflow: hidden;
+                border: 1px solid ${theme.colors.border};
+                line-height: 0;
+              `}
+            >
+              <img
+                src={getThumbnailUrl(attachment)}
+                alt={attachment?.title || 'attachment-thumbnail'}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+              />
+            </Box>
+          )}
         {attachment?.attachments &&
           Array.isArray(attachment.attachments) &&
           attachment.attachments.map((nestedAttachment, index) => (
@@ -223,7 +330,7 @@ const FileAttachment = ({
 
               <AttachmentMetadata
                 attachment={nestedAttachment}
-                url={host + (nestedAttachment?.title_link || '')}
+                url={getAttachmentUrl(nestedAttachment?.title_link)}
                 variantStyles={variantStyles}
                 onExpandCollapseClick={toggleExpanded}
                 isExpanded={isExpanded}
@@ -247,55 +354,37 @@ const FileAttachment = ({
                       />
                     )
                   ) : (
-                    <Box
-                      css={css`
-                        display: flex;
-                        align-items: center;
-                        margin-top: 0.5rem;
-                        background: ${theme.colors.background};
-                        padding: 8px 12px;
-                        border-radius: 4px;
-                        gap: 8px;
-                        border: 1px solid ${theme.colors.border};
-                      `}
-                    >
-                      <Icon name="file" size="40px" />
-                      <Box
-                        css={css`
-                          display: flex;
-                          flex-direction: column;
-                          gap: 2px;
-                          line-height: normal;
-                        `}
-                      >
-                        <a
-                          href={host + (nestedAttachment?.title_link || ' ')}
-                          download={nestedAttachment?.title_link_download}
-                          css={css`
-                            text-decoration: none;
-                            font-size: 0.875rem;
-                            &:hover {
-                              text-decoration: underline;
-                            }
-                          `}
-                        >
-                          {nestedAttachment?.title}
-                        </a>
-                        <Box
-                          css={css`
-                            font-size: 0.75rem;
-                          `}
-                        >
-                          {getFileSizeWithFormat(
-                            nestedAttachment?.size,
-                            nestedAttachment?.format
-                          )}
-                        </Box>
-                      </Box>
-                    </Box>
+                    renderFileOrImagePreview(nestedAttachment)
                   )}
                 </Box>
               )}
+              {!isExpanded &&
+                (nestedAttachment?.thumb_url ||
+                  nestedAttachment?.thumbnail_url ||
+                  nestedAttachment?.thumbnailUrl ||
+                  nestedAttachment?.image_url) && (
+                  <Box
+                    css={css`
+                      margin-top: 0.5rem;
+                      width: 72px;
+                      height: 72px;
+                      border-radius: 4px;
+                      overflow: hidden;
+                      border: 1px solid ${theme.colors.border};
+                      line-height: 0;
+                    `}
+                  >
+                    <img
+                      src={getThumbnailUrl(nestedAttachment)}
+                      alt={nestedAttachment?.title || 'attachment-thumbnail'}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  </Box>
+                )}
             </Box>
           ))}
       </Box>
