@@ -32,7 +32,13 @@ const Attachment = ({ attachment, host, type, variantStyles = {}, msg }) => {
       />
     );
   }
-  if (attachment && attachment.image_url) {
+  if (
+    attachment &&
+    (attachment.image_url ||
+      attachment.thumb_url ||
+      attachment.thumbnail_url ||
+      attachment.thumbnailUrl)
+  ) {
     return (
       <ImageAttachment
         attachment={attachment}
@@ -46,7 +52,10 @@ const Attachment = ({ attachment, host, type, variantStyles = {}, msg }) => {
   if (
     attachment.attachments &&
     Array.isArray(attachment.attachments) &&
-    attachment.attachments[0]?.image_url
+    (attachment.attachments[0]?.image_url ||
+      attachment.attachments[0]?.thumb_url ||
+      attachment.attachments[0]?.thumbnail_url ||
+      attachment.attachments[0]?.thumbnailUrl)
   ) {
     return (
       <ImageAttachment
